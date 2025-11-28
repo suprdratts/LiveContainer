@@ -178,12 +178,7 @@ class LCAppModel: ObservableObject, Hashable {
             uiDefaultDataFolder = newName
         }
         if let containerFolderName {
-            for uiContainer in uiContainers {
-                if uiContainer.folderName == containerFolderName {
-                    uiSelectedContainer = uiContainer
-                    break
-                }
-            }
+            uiSelectedContainer = uiContainers.first { $0.folderName == containerFolderName } ?? uiSelectedContainer
         }
         let currentDataFolder = containerFolderName ?? uiSelectedContainer?.folderName
         
