@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-private enum LCTabIdentifier: Hashable {
+public enum LCTabIdentifier: Hashable {
     case sources
     case apps
     case tweaks
@@ -23,23 +23,25 @@ struct LCTabView: View {
     @State var errorShow = false
     @State var errorInfo = ""
     
+    @State var previousSelectedTab : LCTabIdentifier = .apps
+    
     @EnvironmentObject var sharedModel : SharedModel
     @EnvironmentObject var sceneDelegate: SceneDelegate
     @State var shouldToggleMainWindowOpen = false
     @Environment(\.scenePhase) var scenePhase
     let pub = NotificationCenter.default.publisher(for: UIScene.didDisconnectNotification)
-    @State private var selectedTab: LCTabIdentifier = .apps
+
     
     var body: some View {
         Group {
             let appListView = LCAppListView(appDataFolderNames: $appDataFolderNames, tweakFolderNames: $tweakFolderNames)
-            let sourcesView = LCSourcesView(onInstallComplete: {
-                selectedTab = .apps
-            })
+            let sourcesView = LCSourcesView()
             if #available(iOS 19.0, *), SharedModel.isLiquidGlassSearchEnabled {
-                TabView(selection: $selectedTab) {
-                    Tab("lc.tabView.sources".loc, systemImage: "books.vertical", value: LCTabIdentifier.sources) {
-                        sourcesView
+                TabView(selection: $sharedModel.selectedTab) {
+                    if DataManager.shared.model.multiLCStatus != 2 {
+                        Tab("lc.tabView.sources".loc, systemImage: "books.vertical", value: LCTabIdentifier.sources) {
+                            sourcesView
+                        }
                     }
                     Tab("lc.tabView.apps".loc, systemImage: "square.stack.3d.up.fill", value: LCTabIdentifier.apps) {
                         appListView
@@ -53,17 +55,25 @@ struct LCTabView: View {
                         LCSettingsView(appDataFolderNames: $appDataFolderNames)
                     }
                     Tab("Search".loc, systemImage: "magnifyingglass", value: LCTabIdentifier.search, role: .search) {
-                        appListView
-                            .searchable(text: appListView.$searchContext.query)
+                        if previousSelectedTab == .sources {
+                            sourcesView
+                                .searchable(text: sourcesView.$searchContext.query)
+                        } else {
+                            appListView
+                                .searchable(text: appListView.$searchContext.query)
+                        }
+
                     }
                 }
             } else {
-                TabView(selection: $selectedTab) {
-                    sourcesView
-                        .tabItem {
-                            Label("lc.tabView.sources".loc, systemImage: "books.vertical")
-                        }
-                        .tag(LCTabIdentifier.sources)
+                TabView(selection: $sharedModel.selectedTab) {
+                    if DataManager.shared.model.multiLCStatus != 2 {
+                        sourcesView
+                            .tabItem {
+                                Label("lc.tabView.sources".loc, systemImage: "books.vertical")
+                            }
+                            .tag(LCTabIdentifier.sources)
+                    }
                     appListView
                         .tabItem {
                             Label("lc.tabView.apps".loc, systemImage: "square.stack.3d.up.fill")
@@ -106,6 +116,11 @@ struct LCTabView: View {
                 if shouldToggleMainWindowOpen {
                     DataManager.shared.model.mainWindowOpened = false
                 }
+            }
+        }
+        .onChange(of: sharedModel.selectedTab) { newValue in
+            if newValue != LCTabIdentifier.search {
+                previousSelectedTab = newValue
             }
         }
     }

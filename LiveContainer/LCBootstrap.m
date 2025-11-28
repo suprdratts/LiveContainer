@@ -296,7 +296,6 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
             [lcUserDefaults removeObjectForKey:@"hostUrlScheme"];
             urlScheme = [hostScheme stringByAppendingPathExtension:urlScheme];
         }
-        [LCSharedUtils setContainerUsingByLC:urlScheme folderName:dataUUID auditToken:0];
     }
     
     NSError *error;
@@ -400,11 +399,12 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
     
     setenv("CFFIXED_USER_HOME", newHomePath.UTF8String, 1);
+    newTmpPath = [newTmpPath stringByAppendingPathComponent:@"."];
     setenv("HOME", newHomePath.UTF8String, 1);
     setenv("TMPDIR", newTmpPath.UTF8String, 1);
 
     // Setup directories
-    NSArray *dirList = @[@"Library/Caches", @"Documents", @"SystemData"];
+    NSArray *dirList = @[@"Library/Caches", @"Library/Cookies", @"Documents", @"SystemData"];
     for (NSString *dir in dirList) {
         NSString *dirPath = [newHomePath stringByAppendingPathComponent:dir];
         [fm createDirectoryAtPath:dirPath withIntermediateDirectories:YES attributes:nil error:nil];
@@ -413,6 +413,9 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     NSString* containerInfoPath = [newHomePath stringByAppendingPathComponent:@"LCContainerInfo.plist"];
     guestContainerInfo = [NSDictionary dictionaryWithContentsOfFile:containerInfoPath];
     
+    if(isSharedBundle) {
+        [LCSharedUtils setContainerUsingByLC:lcAppUrlScheme folderName:dataUUID auditToken:0];
+    }
     // Overwrite NSBundle
     overwriteMainNSBundle(appBundle);
 
@@ -706,6 +709,30 @@ int LiveContainerMain(int argc, char *argv[]) {
                 [lcUserDefaults setObject:appError forKey:@"error"];
                 // potentially unrecovable state, exit now
                 return 1;
+            }
+        }
+    }
+    
+    if(isLiveProcess) {
+        NSLog(@"LiveProcess should not launch lcui!");
+        return 0;
+    }
+    
+    // put back cookies
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSURL *libraryURL = [fm URLsForDirectory:NSLibraryDirectory inDomains:NSUserDomainMask].firstObject;;
+    NSURL *cookies2URL = [libraryURL URLByAppendingPathComponent:@"Cookies2"];
+    
+    BOOL isDir = NO;
+    if ([fm fileExistsAtPath:cookies2URL.path isDirectory:&isDir] && isDir) {
+        NSError *error = nil;
+        NSURL *cookiesURL  = [libraryURL URLByAppendingPathComponent:@"Cookies"];
+        // Remove old Caches folder if exists
+        if ([fm fileExistsAtPath:cookiesURL.path]) {
+            if ([fm removeItemAtURL:cookiesURL error:&error]) {
+                [fm moveItemAtURL:cookies2URL toURL:cookiesURL error:&error];
+            } else{
+                NSLog(@"Failed to remove old Cookies folder: %@", error);
             }
         }
     }
