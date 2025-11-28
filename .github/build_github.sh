@@ -1,5 +1,5 @@
 # copy lc
-wget https://github.com/LiveContainer/SideStore/releases/download/dylibify/dylibify
+wget https://github.com/suprdratts/SideStore/releases/download/dylibify/dylibify
 chmod +x dylibify
 brew install ldid
 
@@ -41,7 +41,7 @@ mv ./tmp/SideStore.framework Payload/LiveContainer.app/Frameworks
 
 # download SideStore
 cd tmp
-wget https://github.com/LiveContainer/SideStore/releases/download/nightly/SideStore.ipa
+wget https://github.com/suprdratts/SideStore/releases/download/nightly/SideStore.ipa
 unzip SideStore.ipa
 cd ..
 
