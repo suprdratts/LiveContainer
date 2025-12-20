@@ -1,9 +1,9 @@
 {
-  "name": "LiveContainer",
-  "identifier": "com.livecontainer.source",
+  "name": "LiveContainer + SideStore",
+  "identifier": "com.SideStore.SideStore",
   "website": "https://github.com/LiveContainer/LiveContainer",
-  "subtitle": "LiveContainer official AltStore Source.",
-  "description": "This is the official AltStore Source for LiveContainer.\n\n Run iOS apps without actually installing them!",
+  "subtitle": "LiveContainer + SideStore Source.",
+  "description": "This is an unofficial Source for LiveContainer + SideStore.\n\n Run iOS apps without actually installing them!",
   "tintColor": "#0784FC",
   "iconURL": "https://raw.githubusercontent.com/LiveContainer/LiveContainer/main/screenshots/AppIcon1024.png",
   "headerURL": "https://raw.githubusercontent.com/LiveContainer/LiveContainer/main/screenshots/header.png",
