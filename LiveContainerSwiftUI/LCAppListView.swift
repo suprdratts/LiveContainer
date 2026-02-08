@@ -576,7 +576,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
     }
     
-    nonisolated func decompress(_ path: String, _ destination: String ,_ progress: Progress) async {
+    nonisolated func decompress(_ path: String, _ destination: String ,_ progress: Progress) async -> Int32 {
         extract(path, destination, progress)
     }
     
@@ -598,7 +598,9 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
         
         // decompress
-        await decompress(url.path, fm.temporaryDirectory.path, decompressProgress)
+        guard await decompress(url.path, fm.temporaryDirectory.path, decompressProgress) == 0 else {
+            throw "lc.appList.urlFileIsNotIpaError".loc
+        }
 
         let payloadContents = try fm.contentsOfDirectory(atPath: payloadPath.path)
         var appBundleName : String? = nil
@@ -756,6 +758,12 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             } else {
                 let newAppModel = LCAppModel(appInfo: finalNewApp, delegate: self)
                 sharedModel.apps.append(newAppModel)
+                
+                // add url schemes
+                if let urlSchemes = finalNewApp.urlSchemes(), urlSchemes.count > 0 {
+                    UserDefaults.lcShared().mutableArrayValue(forKey: "LCGuestURLSchemes")
+                        .addObjects(from: urlSchemes as! [Any])
+                }
             }
 
             self.installprogressVisible = false
@@ -1004,7 +1012,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
 
         do {            
-            if #available(iOS 16.0, *), launchInMultitaskMode && appFound.uiIsShared {
+            if #available(iOS 16.0, *), launchInMultitaskMode {
                 try await appFound.runApp(multitask: true, containerFolderName: container, forceJIT: forceJIT)
             } else {
                 try await appFound.runApp(multitask: false, containerFolderName: container, forceJIT: forceJIT)
@@ -1055,19 +1063,25 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
     }
     
-    func jitLaunch(withPID pid: Int) async {
+    func jitLaunch(withPID pid: Int, withScript script: String? = nil) async {
         await MainActor.run {
-            if let url = URL(string: "stikjit://enable-jit?bundle-id=\(Bundle.main.bundleIdentifier!)pid=\(pid)") {
-                UIApplication.shared.open(url)
-            }
-        }
-    }
-
-    func jitLaunch(withPID pid: Int, withScript script: String) async {
-        await MainActor.run {
-            let encoded = script.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-            if let url = URL(string: "stikjit://enable-jit?bundle-id=\(Bundle.main.bundleIdentifier!)&pid=\(pid)&script-data=\(encoded)") {
-                UIApplication.shared.open(url)
+            let encoded = script?.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+                .map { "&script-data=\($0)" } ?? ""
+            if let url = URL(string: "stikjit://enable-jit?bundle-id=\(Bundle.main.bundleIdentifier!)&pid=\(pid)\(encoded)") {
+                if let jitEnabler = JITEnablerType(rawValue: LCUtils.appGroupUserDefault.integer(forKey: "LCJITEnablerType")), jitEnabler == .StikJITLC {
+                    if let app = sharedModel.apps.first(where: { app in
+                        return app.appInfo.urlSchemes().contains("stikjit") &&
+                        (sharedModel.multiLCStatus != 2 || app.appInfo.isShared)
+                    }) {
+                        Task { await openWebView(urlString: url.absoluteString) }
+                    } else {
+                        errorInfo = "StikDebug is not found. Please install it first and switch it to shared app."
+                        errorShow = true
+                        return
+                    }
+                } else {
+                    UIApplication.shared.open(url)
+                }
             }
         }
     }
